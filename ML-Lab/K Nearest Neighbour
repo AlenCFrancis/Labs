@@ -1,69 +1,95 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
-import pandas as pd
-import time
+# ============================================================
+# Experiment : K-Nearest Neighbours (KNN) Classification
+# Dataset    : Fashion-MNIST  (Datasets/fashion-mnist_test.csv)
+# Columns    : label (0-9 clothing class) + pixel1 ... pixel784
+#              (each image is 28x28 = 784 grey-scale pixels, 0-255)
+# Goal       : Classify clothing images and see how the value of K
+#              affects accuracy.
+# ============================================================
 
-from google.colab import files
+import os                                            # to build the dataset file path
+import numpy as np                                   # numerical arrays
+import matplotlib.pyplot as plt                      # plotting
+from sklearn.neighbors import KNeighborsClassifier   # the KNN model
+from sklearn.metrics import accuracy_score           # % of correct predictions
+from sklearn.model_selection import train_test_split # split data into train / test
+import pandas as pd                                  # reading the CSV
+import time                                          # measure how long each K takes
 
-uploaded = files.upload()
+# --- Google Colab only: uncomment these lines to upload the CSV in Colab ---
+# from google.colab import files
+# uploaded = files.upload()
 
+# Folder that contains the CSV files (Ml lab/Datasets).
+# On Colab change this to '/content'.
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'Datasets')
 
-df = pd.read_csv('/content/fashion-mnist_train.csv')
+# Load the dataset -> 10,000 rows x 785 columns (1 label + 784 pixels)
+df = pd.read_csv(os.path.join(DATA_DIR, 'fashion-mnist_test.csv'))
 
 print("Dataset shape:", df.shape)
 print(df.head())
 
+# y = target (which clothing class), X = the 784 pixel features
 y = df['label'].values
 X = df.drop('label', axis=1).values
 
+# Normalise pixels from 0-255 to 0-1.
+# KNN uses distance, so features must be on the same scale.
 X = X / 255.0
 
+# Split into training and testing sets.
+# This file has only 10,000 rows, so we use 8,000 for training and 2,000 for testing.
+# stratify=y keeps the same proportion of each class in both sets.
 X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(
     X, y,
     test_size=2000,
-    train_size=10000,
-    random_state=42,
+    train_size=8000,
+    random_state=42,      # fixed seed -> same split every run
     stratify=y
 )
 
 print("Training samples:", X_train_f.shape)
 print("Testing samples:", X_test_f.shape)
 
-
+# Names of the 10 classes (index = label number)
 class_names = [
     'T-shirt', 'Trouser', 'Pullover', 'Dress', 'Coat',
     'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'
 ]
 
-
+# Try different K values (odd numbers avoid ties in voting)
 k_values = [1, 3, 5, 7, 9, 11]
-results = []
+results = []   # stores (k, accuracy, time) for each run
 
 for k in k_values:
-    t0 = time.time()
+    t0 = time.time()   # start timer
 
+    # KNN: a test point gets the majority class of its K closest training points
     clf = KNeighborsClassifier(
         n_neighbors=k,
-        n_jobs=-1
+        n_jobs=-1        # use all CPU cores
     )
 
+    # "Training" in KNN just stores the training data
     clf.fit(X_train_f, y_train_f)
 
+    # Prediction: compute distances to all training points and vote
     y_pred = clf.predict(X_test_f)
 
+    # Compare predictions with true labels
     acc = accuracy_score(y_test_f, y_pred)
 
-    elapsed = time.time() - t0
+    elapsed = time.time() - t0   # time taken for this K
 
     results.append((k, acc, elapsed))
 
     print(f'K={k:2d} Acc={acc:.4f} Time={elapsed:.1f}s')
 
+# Unpack results into separate lists for plotting
 ks, accs, _ = zip(*results)
 
+# Plot accuracy against K to find the best K
 plt.plot(ks, accs, marker='o')
 plt.xlabel('K')
 plt.ylabel('Accuracy')
